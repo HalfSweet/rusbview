@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
 
@@ -12,7 +13,7 @@ use crate::history::{default_history_path, DeviceHistoryStore};
 use crate::i18n::{Message, Translator};
 use crate::logging;
 use crate::monitor::{spawn_hotplug_monitor, MonitorEvent, UsbMonitorHandle};
-use crate::usb::{capture_snapshot, DescriptorSection, UsbDevice, UsbSnapshot};
+use crate::usb::{capture_snapshot, DescriptorSection, UsbBus, UsbDevice, UsbSnapshot};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ThemeMode {
@@ -45,6 +46,8 @@ pub struct RusbviewApp {
     history: DeviceHistoryStore,
     history_path: String,
     status: String,
+    expanded_nodes: BTreeSet<String>,
+    tree_initialized: bool,
     _monitor: UsbMonitorHandle,
     monitor_rx: Receiver<MonitorEvent>,
 }
@@ -95,6 +98,8 @@ impl RusbviewApp {
             history,
             history_path,
             status: "Starting USB monitor".to_string(),
+            expanded_nodes: BTreeSet::new(),
+            tree_initialized: false,
             _monitor: monitor,
             monitor_rx,
         };
@@ -167,6 +172,7 @@ impl RusbviewApp {
         }
 
         self.snapshot = Some(snapshot);
+        self.initialize_tree_expansion();
         self.ensure_selection();
         if let Err(error) = self.history.save_default() {
             warn!(?error, "failed to save device history");
@@ -203,6 +209,57 @@ impl RusbviewApp {
     fn set_theme(&mut self, theme: ThemeMode, cx: &mut Context<Self>) {
         self.theme = theme;
         cx.notify();
+    }
+
+    fn toggle_tree_node(&mut self, key: String, cx: &mut Context<Self>) {
+        if !self.expanded_nodes.insert(key.clone()) {
+            self.expanded_nodes.remove(&key);
+        }
+        cx.notify();
+    }
+
+    fn initialize_tree_expansion(&mut self) {
+        if self.tree_initialized {
+            return;
+        }
+
+        if let Some(snapshot) = &self.snapshot {
+            let mut keys = Vec::new();
+            for bus in &snapshot.buses {
+                if !bus.devices.is_empty() {
+                    keys.push(Self::bus_tree_key(bus));
+                }
+                for device in &bus.devices {
+                    Self::collect_expanded_device_keys(device, &mut keys);
+                }
+            }
+            self.expanded_nodes.extend(keys);
+            self.tree_initialized = true;
+        }
+    }
+
+    fn collect_expanded_device_keys(device: &UsbDevice, keys: &mut Vec<String>) {
+        if !device.children.is_empty() {
+            keys.push(Self::device_tree_key(device));
+        }
+        for child in &device.children {
+            Self::collect_expanded_device_keys(child, keys);
+        }
+    }
+
+    fn bus_tree_key(bus: &UsbBus) -> String {
+        format!("bus:{}", bus.key)
+    }
+
+    fn device_tree_key(device: &UsbDevice) -> String {
+        format!("device:{}", device.instance_key)
+    }
+
+    fn device_count(devices: &[UsbDevice]) -> usize {
+        devices
+            .iter()
+            .map(|device| 1 + Self::device_count(&device.children))
+            .sum()
     }
 
     fn palette(&self, window: &Window) -> Palette {
@@ -357,29 +414,12 @@ impl RusbviewApp {
 
     fn render_sidebar(&self, palette: Palette, cx: &mut Context<Self>) -> impl IntoElement {
         let content = if let Some(snapshot) = &self.snapshot {
-            div()
-                .flex()
-                .flex_col()
-                .gap_2()
-                .children(snapshot.buses.iter().map(|bus| {
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .child(
-                            div()
-                                .px_2()
-                                .py_1()
-                                .text_xs()
-                                .text_color(palette.muted)
-                                .child(format!("{} - {} devices", bus.name, bus.devices.len())),
-                        )
-                        .children(
-                            bus.devices
-                                .iter()
-                                .map(|device| self.render_device_node(device, 0, palette, cx)),
-                        )
-                }))
+            div().flex().flex_col().gap_1().children(
+                snapshot
+                    .buses
+                    .iter()
+                    .map(|bus| self.render_bus_node(bus, palette, cx)),
+            )
         } else {
             div()
                 .flex()
@@ -418,6 +458,65 @@ impl RusbviewApp {
             )
     }
 
+    fn render_bus_node(
+        &self,
+        bus: &UsbBus,
+        palette: Palette,
+        cx: &mut Context<Self>,
+    ) -> gpui::AnyElement {
+        let tree_key = Self::bus_tree_key(bus);
+        let has_children = !bus.devices.is_empty();
+        let is_expanded = self.expanded_nodes.contains(&tree_key);
+        let device_count = Self::device_count(&bus.devices);
+        let toggle_key = tree_key.clone();
+        let mut node = div().flex().flex_col().gap_1().child(
+            div()
+                .flex()
+                .items_center()
+                .gap_2()
+                .px_2()
+                .py_1()
+                .rounded_sm()
+                .bg(palette.sidebar)
+                .hover(move |style| style.bg(palette.row_hover))
+                .child(self.render_tree_toggle(toggle_key, has_children, is_expanded, palette, cx))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .cursor_pointer()
+                        .child(
+                            div()
+                                .truncate()
+                                .text_sm()
+                                .text_color(palette.text)
+                                .child(bus.name.clone()),
+                        )
+                        .child(
+                            div()
+                                .truncate()
+                                .text_xs()
+                                .text_color(palette.muted)
+                                .child(format!("{} - {device_count} devices", bus.controller)),
+                        )
+                        .id(SharedString::from(format!("bus-label-{}", bus.key)))
+                        .on_click(cx.listener(move |view, _, _, cx| {
+                            view.toggle_tree_node(tree_key.clone(), cx);
+                        })),
+                ),
+        );
+
+        if is_expanded {
+            node = node.children(
+                bus.devices
+                    .iter()
+                    .map(|device| self.render_device_node(device, 1, palette, cx)),
+            );
+        }
+
+        node.into_any_element()
+    }
+
     fn render_device_node(
         &self,
         device: &UsbDevice,
@@ -426,94 +525,144 @@ impl RusbviewApp {
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
         let key = device.instance_key.clone();
+        let tree_key = Self::device_tree_key(device);
+        let has_children = !device.children.is_empty();
+        let is_expanded = self.expanded_nodes.contains(&tree_key);
         let is_selected = self.selected_device.as_deref() == Some(device.instance_key.as_str());
         let history = self.history.get(&device.identity);
         let insertions = history.map(|history| history.insertions).unwrap_or(0);
         let removals = history.map(|history| history.removals).unwrap_or(0);
         let left_padding = 10.0 + (depth as f32 * 18.0);
 
-        let row =
-            div()
-                .id(SharedString::from(format!(
-                    "device-{}",
-                    device.instance_key
-                )))
-                .cursor_pointer()
-                .flex()
-                .items_center()
-                .justify_between()
-                .gap_2()
-                .pl(px(left_padding))
-                .pr_2()
-                .py_2()
-                .rounded_sm()
-                .bg(if is_selected {
-                    palette.selected
-                } else {
-                    palette.row
-                })
-                .hover(move |style| style.bg(palette.row_hover))
-                .border_1()
-                .border_color(if is_selected {
-                    palette.accent
-                } else {
-                    palette.border
-                })
-                .on_click(cx.listener(move |view, _, _, cx| {
-                    view.selected_device = Some(key.clone());
-                    cx.notify();
-                }))
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .min_w(px(0.0))
-                        .child(
-                            div()
-                                .truncate()
-                                .text_color(palette.text)
-                                .text_sm()
-                                .child(device.display_name.clone()),
-                        )
-                        .child(div().truncate().text_xs().text_color(palette.muted).child(
-                            format!(
-                                "{:04x}:{:04x}  {}",
-                                device.identity.vendor_id.unwrap_or(0),
-                                device.identity.product_id.unwrap_or(0),
-                                device.port_path
-                            ),
-                        )),
-                )
-                .child(
-                    div()
-                        .flex()
-                        .gap_1()
-                        .text_xs()
-                        .child(
-                            div()
-                                .text_color(palette.success)
-                                .child(format!("+{insertions}")),
-                        )
-                        .child(
-                            div()
-                                .text_color(palette.danger)
-                                .child(format!("-{removals}")),
-                        ),
-                );
-
-        div()
+        let toggle_key = tree_key.clone();
+        let row = div()
+            .id(SharedString::from(format!(
+                "device-{}",
+                device.instance_key
+            )))
             .flex()
-            .flex_col()
-            .gap_1()
-            .child(row)
-            .children(
+            .items_center()
+            .justify_between()
+            .gap_2()
+            .pl(px(left_padding))
+            .pr_2()
+            .py_1()
+            .rounded_sm()
+            .bg(if is_selected {
+                palette.selected
+            } else {
+                palette.sidebar
+            })
+            .hover(move |style| style.bg(palette.row_hover))
+            .border_1()
+            .border_color(if is_selected {
+                palette.accent
+            } else {
+                palette.sidebar
+            })
+            .child(self.render_tree_toggle(toggle_key, has_children, is_expanded, palette, cx))
+            .child(
+                div()
+                    .cursor_pointer()
+                    .flex_1()
+                    .min_w(px(0.0))
+                    .py_1()
+                    .id(SharedString::from(format!(
+                        "device-label-{}",
+                        device.instance_key
+                    )))
+                    .on_click(cx.listener(move |view, _, _, cx| {
+                        view.selected_device = Some(key.clone());
+                        cx.notify();
+                    }))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_1()
+                            .min_w(px(0.0))
+                            .child(
+                                div()
+                                    .truncate()
+                                    .text_color(palette.text)
+                                    .text_sm()
+                                    .child(device.display_name.clone()),
+                            )
+                            .child(div().truncate().text_xs().text_color(palette.muted).child(
+                                format!(
+                                    "{:04x}:{:04x}  {}",
+                                    device.identity.vendor_id.unwrap_or(0),
+                                    device.identity.product_id.unwrap_or(0),
+                                    device.port_path
+                                ),
+                            )),
+                    ),
+            )
+            .child(
+                div()
+                    .flex_none()
+                    .w(px(48.0))
+                    .flex()
+                    .justify_end()
+                    .gap_1()
+                    .text_xs()
+                    .child(
+                        div()
+                            .text_color(palette.success)
+                            .child(format!("+{insertions}")),
+                    )
+                    .child(
+                        div()
+                            .text_color(palette.danger)
+                            .child(format!("-{removals}")),
+                    ),
+            );
+
+        let mut node = div().flex().flex_col().gap_1().child(row);
+
+        if is_expanded {
+            node = node.children(
                 device
                     .children
                     .iter()
                     .map(|child| self.render_device_node(child, depth + 1, palette, cx)),
-            )
-            .into_any_element()
+            );
+        }
+
+        node.into_any_element()
+    }
+
+    fn render_tree_toggle(
+        &self,
+        key: String,
+        has_children: bool,
+        is_expanded: bool,
+        palette: Palette,
+        cx: &mut Context<Self>,
+    ) -> gpui::AnyElement {
+        if has_children {
+            let label = if is_expanded { "v" } else { ">" };
+            div()
+                .flex_none()
+                .w(px(22.0))
+                .h(px(24.0))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded_sm()
+                .cursor_pointer()
+                .text_sm()
+                .text_color(palette.muted)
+                .hover(move |style| style.bg(palette.row_hover).text_color(palette.text))
+                .child(label)
+                .id(SharedString::from(format!("toggle-{key}")))
+                .on_click(cx.listener(move |view, _, _, cx| {
+                    view.toggle_tree_node(key.clone(), cx);
+                }))
+                .into_any_element()
+        } else {
+            div().flex_none().w(px(22.0)).h(px(24.0)).into_any_element()
+        }
     }
 
     fn render_content(&self, palette: Palette) -> impl IntoElement {
