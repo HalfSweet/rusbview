@@ -9,15 +9,20 @@ repository = "https://github.com/halfsweet/rusbview"
 [dependencies]
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
-cyme = { version = "2.3", default-features = false, features = ["nusb"] }
+cyme = { version = "2.3", default-features = false, features = ["watch"] }
 directories = "6"
-gpui = "0.2"
+futures-lite = "2"
+gpui = { version = "0.2", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[features]
+default = []
+gui = ["dep:gpui"]
 
 [dev-dependencies]
 tempfile = "3"
