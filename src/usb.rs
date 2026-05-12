@@ -247,8 +247,14 @@ fn descriptor_sections(device: &Device) -> Vec<DescriptorSection> {
                 field("Product Name", optional_string(&extra.product_name)),
                 field("String Indexes", format!("{:?}", extra.string_indexes)),
                 field("Status", optional_hex_u16(extra.status)),
-                field("Negotiated Speed", optional_display(&extra.negotiated_speed)),
-                field("BOS Descriptor", present(extra.binary_object_store.is_some())),
+                field(
+                    "Negotiated Speed",
+                    optional_display(&extra.negotiated_speed),
+                ),
+                field(
+                    "BOS Descriptor",
+                    present(extra.binary_object_store.is_some()),
+                ),
                 field("Qualifier Descriptor", present(extra.qualifier.is_some())),
                 field("Hub Descriptor", present(extra.hub.is_some())),
                 field("Debug Descriptor", present(extra.debug.is_some())),
@@ -267,7 +273,10 @@ fn descriptor_sections(device: &Device) -> Vec<DescriptorSection> {
                         configuration.number_of_interfaces().to_string(),
                     ),
                     field("Attributes", configuration.attributes_string()),
-                    field("Attributes Value", format!("0x{:02x}", configuration.attributes_value())),
+                    field(
+                        "Attributes Value",
+                        format!("0x{:02x}", configuration.attributes_value()),
+                    ),
                     field("Max Power", configuration.max_power.to_string()),
                     field("Length", configuration.length.to_string()),
                     field("Total Length", configuration.total_length.to_string()),
@@ -469,7 +478,10 @@ mod tests {
         let second = test_device(Some("abc"), 3);
 
         assert_eq!(first.identity.stable_key(), second.identity.stable_key());
-        assert_ne!(first.identity.instance_key(), second.identity.instance_key());
+        assert_ne!(
+            first.identity.instance_key(),
+            second.identity.instance_key()
+        );
     }
 
     #[test]
