@@ -34,5 +34,20 @@
   "dark": "暗色",
   "theme": "主题",
   "loading": "正在读取 USB 快照",
-  "profilerError": "枚举错误"
+  "profilerError": "枚举错误",
+  "settings": "设置",
+  "settingsSubtitle": "应用偏好与本地数据位置",
+  "language": "语言",
+  "languageDescription": "控制界面语言，选择会保存在本机。",
+  "appearance": "外观",
+  "appearanceDescription": "选择固定主题，或跟随操作系统。",
+  "dataAndLogs": "数据与日志",
+  "dataAndLogsDescription": "持久化 USB 历史记录和滚动应用日志。",
+  "runtime": "运行状态",
+  "runtimeDescription": "当前后端语言环境和 USB 监听状态。",
+  "currentLanguage": "当前语言",
+  "backendLocale": "后端语言环境",
+  "hotplugMonitor": "热拔插监听",
+  "active": "运行中",
+  "pageDevices": "USB 浏览"
 }

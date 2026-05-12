@@ -12,13 +12,17 @@ import {
   ChevronRight,
   CircleAlert,
   Clock3,
+  Database,
   FileText,
   HardDrive,
+  Languages,
   type LucideIcon,
   Monitor,
   Moon,
   RefreshCw,
   Search,
+  Settings as SettingsIcon,
+  SlidersHorizontal,
   Sun,
   Usb,
 } from "lucide-react";
@@ -41,12 +45,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { backendLocaleToLanguage } from "@/lib/i18n";
+import { backendLocaleToLanguage, supportedLanguages } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type {
   DescriptorSection,
+  BackendLocale,
   DeviceHistory,
   DeviceHistoryStore,
+  LanguageCode,
   UsbBus,
   UsbDevice,
   UsbMonitorPayload,
@@ -55,6 +61,7 @@ import type {
 } from "@/lib/types";
 
 type ThemeMode = "system" | "light" | "dark";
+type PageMode = "devices" | "settings";
 
 const EVENT_NAME = "usb-state-changed";
 
@@ -63,6 +70,7 @@ function App() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState<PageMode>("devices");
   const [theme, setTheme] = useState<ThemeMode>(() => {
     const stored = localStorage.getItem("rusbview-theme");
     return stored === "light" || stored === "dark" || stored === "system"
@@ -225,6 +233,7 @@ function App() {
             </div>
 
             <div className="flex items-center gap-2">
+              <HeaderNav page={page} setPage={setPage} t={t} />
               <ThemeButtons theme={theme} setTheme={setTheme} t={t} />
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -246,39 +255,100 @@ function App() {
           </header>
 
           <main className="min-h-0 flex-1">
-            <ResizablePanelGroup>
-              <ResizablePanel defaultSize={32} minSize={24}>
-                <DeviceSidebar
-                  expanded={expanded}
-                  history={history}
-                  loading={loading}
-                  query={query}
-                  selectedKey={selectedKey}
-                  snapshot={snapshot}
-                  t={t}
-                  toggleExpanded={toggleExpanded}
-                  onQueryChange={setQuery}
-                  onSelect={setSelectedKey}
-                />
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={68} minSize={42}>
-                <DeviceContent
-                  device={selectedDevice}
-                  error={error}
-                  history={history}
-                  logDir={payload?.logDir ?? "unavailable"}
-                  historyPath={payload?.historyPath ?? "unavailable"}
-                  snapshot={snapshot}
-                  status={payload?.status ?? null}
-                  t={t}
-                />
-              </ResizablePanel>
-            </ResizablePanelGroup>
+            {page === "settings" ? (
+              <SettingsPage
+                backendLocale={payload?.locale ?? null}
+                historyPath={payload?.historyPath ?? "unavailable"}
+                language={i18n.resolvedLanguage ?? i18n.language}
+                logDir={payload?.logDir ?? "unavailable"}
+                status={payload?.status ?? null}
+                t={t}
+                theme={theme}
+                setTheme={setTheme}
+                onLanguageChange={(language) => {
+                  void i18n.changeLanguage(language);
+                }}
+              />
+            ) : (
+              <ResizablePanelGroup>
+                <ResizablePanel defaultSize={32} minSize={24}>
+                  <DeviceSidebar
+                    expanded={expanded}
+                    history={history}
+                    loading={loading}
+                    query={query}
+                    selectedKey={selectedKey}
+                    snapshot={snapshot}
+                    t={t}
+                    toggleExpanded={toggleExpanded}
+                    onQueryChange={setQuery}
+                    onSelect={setSelectedKey}
+                  />
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={68} minSize={42}>
+                  <DeviceContent
+                    device={selectedDevice}
+                    error={error}
+                    history={history}
+                    logDir={payload?.logDir ?? "unavailable"}
+                    historyPath={payload?.historyPath ?? "unavailable"}
+                    snapshot={snapshot}
+                    status={payload?.status ?? null}
+                    t={t}
+                  />
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            )}
           </main>
         </div>
       </TooltipProvider>
     </MotionConfig>
+  );
+}
+
+function HeaderNav({
+  page,
+  setPage,
+  t,
+}: {
+  page: PageMode;
+  setPage: (page: PageMode) => void;
+  t: Translator;
+}) {
+  const items: Array<{
+    mode: PageMode;
+    label: string;
+    icon: LucideIcon;
+  }> = [
+    { mode: "devices", label: t("pageDevices"), icon: Usb },
+    { mode: "settings", label: t("settings"), icon: SettingsIcon },
+  ];
+
+  return (
+    <div className="flex h-8 items-center rounded-md border border-border bg-muted p-0.5">
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <Button
+            aria-pressed={page === item.mode}
+            className={cn(
+              "h-7 rounded-[6px] border-0 px-2 text-xs",
+              page === item.mode
+                ? "bg-background text-foreground shadow-none"
+                : "text-muted-foreground",
+            )}
+            key={item.mode}
+            size="sm"
+            variant="ghost"
+            onClick={() => setPage(item.mode)}
+          >
+            <Icon className="size-3.5" />
+            {item.label}
+          </Button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -294,7 +364,7 @@ function ThemeButtons({
   const items: Array<{
     mode: ThemeMode;
     label: string;
-  icon: LucideIcon;
+    icon: LucideIcon;
   }> = [
     { mode: "system", label: t("system"), icon: Monitor },
     { mode: "light", label: t("light"), icon: Sun },
@@ -413,6 +483,177 @@ function DeviceSidebar({
         </div>
       </ScrollArea>
     </aside>
+  );
+}
+
+function SettingsPage({
+  backendLocale,
+  historyPath,
+  language,
+  logDir,
+  status,
+  t,
+  theme,
+  setTheme,
+  onLanguageChange,
+}: {
+  backendLocale: BackendLocale | null;
+  historyPath: string;
+  language: string;
+  logDir: string;
+  status: string | null;
+  t: Translator;
+  theme: ThemeMode;
+  setTheme: (theme: ThemeMode) => void;
+  onLanguageChange: (language: LanguageCode) => void;
+}) {
+  const activeLanguage: LanguageCode = language.toLowerCase().startsWith("zh")
+    ? "zh-CN"
+    : "en";
+
+  return (
+    <section className="flex h-full flex-col bg-background">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-card px-4">
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-medium">{t("settings")}</h2>
+          <p className="truncate text-xs text-muted-foreground">
+            {t("settingsSubtitle")}
+          </p>
+        </div>
+        <Badge className="rounded-md" variant="outline">
+          <SettingsIcon className="size-3" />
+          {t("settings")}
+        </Badge>
+      </div>
+
+      <ScrollArea className="min-h-0 flex-1">
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4"
+          initial={{ opacity: 0, y: 6 }}
+          transition={{ duration: 0.16 }}
+        >
+          <SettingsSection
+            description={t("languageDescription")}
+            icon={Languages}
+            title={t("language")}
+          >
+            <div className="flex flex-wrap gap-2">
+              {supportedLanguages.map((item) => (
+                <Button
+                  aria-pressed={activeLanguage === item.code}
+                  className={cn(
+                    "h-9 rounded-md px-3",
+                    activeLanguage === item.code &&
+                      "border-primary/30 bg-primary/10",
+                  )}
+                  key={item.code}
+                  variant="outline"
+                  onClick={() => onLanguageChange(item.code)}
+                >
+                  <span>{item.nativeLabel}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.label}
+                  </span>
+                </Button>
+              ))}
+            </div>
+            <SettingRow
+              label={t("currentLanguage")}
+              value={
+                supportedLanguages.find((item) => item.code === activeLanguage)
+                  ?.nativeLabel ?? activeLanguage
+              }
+            />
+          </SettingsSection>
+
+          <SettingsSection
+            description={t("appearanceDescription")}
+            icon={SlidersHorizontal}
+            title={t("appearance")}
+          >
+            <ThemeButtons setTheme={setTheme} t={t} theme={theme} />
+          </SettingsSection>
+
+          <SettingsSection
+            description={t("runtimeDescription")}
+            icon={Monitor}
+            title={t("runtime")}
+          >
+            <SettingRow
+              label={t("hotplugMonitor")}
+              value={`${t("active")} · ${status ?? "N/A"}`}
+            />
+            <SettingRow
+              label={t("backendLocale")}
+              value={backendLocale ?? "N/A"}
+            />
+          </SettingsSection>
+
+          <SettingsSection
+            description={t("dataAndLogsDescription")}
+            icon={Database}
+            title={t("dataAndLogs")}
+          >
+            <SettingRow label={t("historyPath")} value={historyPath} mono />
+            <SettingRow label={t("logDir")} value={logDir} mono />
+          </SettingsSection>
+        </motion.div>
+      </ScrollArea>
+    </section>
+  );
+}
+
+function SettingsSection({
+  children,
+  description,
+  icon: Icon,
+  title,
+}: {
+  children: ReactNode;
+  description: string;
+  icon: LucideIcon;
+  title: string;
+}) {
+  return (
+    <section className="rounded-md border border-border bg-card">
+      <div className="flex items-start gap-3 border-b border-border p-4">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground">
+          <Icon className="size-4" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-sm font-medium">{title}</h3>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            {description}
+          </p>
+        </div>
+      </div>
+      <div className="space-y-3 p-4">{children}</div>
+    </section>
+  );
+}
+
+function SettingRow({
+  label,
+  mono,
+  value,
+}: {
+  label: string;
+  mono?: boolean;
+  value: string;
+}) {
+  return (
+    <div className="grid grid-cols-[160px_1fr] gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm">
+      <div className="text-muted-foreground">{label}</div>
+      <div
+        className={cn(
+          "min-w-0 break-words",
+          mono && "font-mono text-xs leading-5",
+        )}
+      >
+        {value}
+      </div>
+    </div>
   );
 }
 

@@ -34,5 +34,20 @@
   "dark": "Dark",
   "theme": "Theme",
   "loading": "Loading USB snapshot",
-  "profilerError": "Profiler error"
+  "profilerError": "Profiler error",
+  "settings": "Settings",
+  "settingsSubtitle": "Application preferences and local data locations",
+  "language": "Language",
+  "languageDescription": "Controls the interface language. The choice is stored locally.",
+  "appearance": "Appearance",
+  "appearanceDescription": "Choose a fixed theme or follow the operating system.",
+  "dataAndLogs": "Data and logs",
+  "dataAndLogsDescription": "Persistent USB history and rolling application logs.",
+  "runtime": "Runtime",
+  "runtimeDescription": "Current backend locale and USB monitor state.",
+  "currentLanguage": "Current language",
+  "backendLocale": "Backend locale",
+  "hotplugMonitor": "Hotplug monitor",
+  "active": "Active",
+  "pageDevices": "USB Explorer"
 }
