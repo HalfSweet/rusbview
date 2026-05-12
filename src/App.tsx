@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import type { TFunction } from "i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 import {
   Activity,
   Cable,
@@ -39,7 +41,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { createTranslator, resolveLocale } from "@/lib/i18n";
+import { backendLocaleToLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type {
   DescriptorSection,
@@ -72,8 +74,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const initializedTree = useRef(false);
 
-  const locale = resolveLocale(payload?.locale);
-  const t = useMemo(() => createTranslator(locale), [locale]);
+  const { i18n, t } = useTranslation();
   const snapshot = payload?.snapshot ?? null;
   const history = payload?.history ?? { devices: {} };
   const devices = useMemo(
@@ -100,6 +101,14 @@ function App() {
     media.addEventListener("change", applyTheme);
     return () => media.removeEventListener("change", applyTheme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!payload?.locale || localStorage.getItem("i18nextLng")) {
+      return;
+    }
+
+    void i18n.changeLanguage(backendLocaleToLanguage(payload.locale));
+  }, [i18n, payload?.locale]);
 
   useEffect(() => {
     let disposed = false;
@@ -1048,6 +1057,6 @@ function compact(values: Array<string | null | undefined>) {
   return values.filter((value): value is string => Boolean(value));
 }
 
-type Translator = ReturnType<typeof createTranslator>;
+type Translator = TFunction<"translation", undefined>;
 
 export default App;

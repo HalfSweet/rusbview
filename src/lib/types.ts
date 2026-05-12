@@ -1,4 +1,5 @@
-export type Locale = "En" | "ZhHans";
+export type BackendLocale = "En" | "ZhHans";
+export type LanguageCode = "en" | "zh-CN";
 
 export type UsbStatePayload = {
   snapshot: UsbSnapshot | null;
@@ -6,7 +7,7 @@ export type UsbStatePayload = {
   status: string;
   historyPath: string;
   logDir: string;
-  locale: Locale;
+  locale: BackendLocale;
 };
 
 export type UsbMonitorPayload = {
