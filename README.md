@@ -5,14 +5,14 @@
 ## Run
 
 ```sh
-cargo run --features gui
+cargo run
 ```
 
-For non-GUI development and CI checks:
+For development and CI checks:
 
 ```sh
-cargo test --no-default-features
-cargo check --features gui
+cargo test
+cargo check
 ```
 
 ## Platform Notes
