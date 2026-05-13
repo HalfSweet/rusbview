@@ -1,5 +1,10 @@
+import type { TFunction } from "i18next";
+
 export type BackendLocale = "En" | "ZhHans";
 export type LanguageCode = "en" | "zh-CN";
+export type ThemeMode = "system" | "light" | "dark";
+export type PageMode = "devices" | "settings";
+export type Translator = TFunction<"translation", undefined>;
 
 export type UsbStatePayload = {
   snapshot: UsbSnapshot | null;
