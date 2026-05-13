@@ -195,17 +195,7 @@ function App() {
       <TooltipProvider delayDuration={300}>
         <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
           {/* ─── Toolbar ─── */}
-          <header className="flex h-10 shrink-0 items-center justify-between border-b border-border px-3 select-none">
-            <div className="flex items-center gap-2">
-              <Usb className="size-3.5 text-primary" />
-              <span className="text-xs font-semibold tracking-tight">
-                {t("appTitle")}
-              </span>
-              <span className="text-[10px] text-muted-foreground">
-                {payload?.status ?? (loading ? "..." : "")}
-              </span>
-            </div>
-
+          <header className="flex h-10 shrink-0 items-center justify-end border-b border-border px-3 select-none">
             <div className="flex items-center gap-1">
               <SegmentedControl
                 items={[
@@ -254,7 +244,7 @@ function App() {
               {page === "settings" ? (
                 <motion.div
                   key="settings"
-                  className="h-full"
+                  className="h-full w-full"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -275,7 +265,7 @@ function App() {
               ) : (
                 <motion.div
                   key="devices"
-                  className="h-full"
+                  className="h-full w-full"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -431,7 +421,7 @@ function TreeSidebar({
   const normalizedQuery = query.trim().toLowerCase();
 
   return (
-    <aside className="flex h-full flex-col border-r border-border bg-sidebar">
+    <aside className="flex h-full min-w-[220px] flex-col border-r border-border bg-sidebar">
       {/* search */}
       <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border px-2">
         <Search className="size-3 shrink-0 text-muted-foreground" />
