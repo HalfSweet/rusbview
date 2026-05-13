@@ -82,7 +82,6 @@
     --sidebar-border: oklch(0.91 0.008 240);
     --sidebar-ring: oklch(0.55 0.06 250);
 
-    --tree-guide: oklch(0.88 0.008 240);
 }
 
 .dark {
@@ -118,7 +117,6 @@
     --sidebar-border: oklch(0.28 0.016 250);
     --sidebar-ring: oklch(0.70 0.07 230);
 
-    --tree-guide: oklch(0.30 0.012 250);
 }
 
 @layer base {
@@ -137,42 +135,3 @@
   }
 }
 
-@layer components {
-  .tree-guide-line {
-    position: relative;
-  }
-  .tree-guide-line::before {
-    content: "";
-    position: absolute;
-    left: 7px;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    background: var(--tree-guide);
-  }
-
-  .tree-node {
-    position: relative;
-  }
-  .tree-node::before {
-    content: "";
-    position: absolute;
-    left: -9px;
-    top: 50%;
-    width: 9px;
-    height: 1px;
-    background: var(--tree-guide);
-  }
-  .tree-node::after {
-    content: "";
-    position: absolute;
-    left: -9px;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    background: var(--tree-guide);
-  }
-  .tree-node-last::after {
-    bottom: 50%;
-  }
-}

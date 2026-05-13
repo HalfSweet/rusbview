@@ -23,6 +23,9 @@ import type {
   UsbSnapshot,
 } from "@/lib/types";
 
+/** Pixels of indentation per tree depth level. */
+const INDENT_PX = 20;
+
 export function TreeSidebar({
   expanded,
   loading,
@@ -110,6 +113,8 @@ export function TreeSidebar({
   );
 }
 
+/* ── Bus ── */
+
 function BusNode({
   bus,
   expanded,
@@ -159,22 +164,19 @@ function BusNode({
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="overflow-hidden"
           >
-            <div className="ml-[15px] tree-guide-line">
-              {visibleDevices.map((device, idx) => (
-                <DeviceNode
-                  depth={1}
-                  device={device}
-                  expanded={expanded}
-                  isLast={idx === visibleDevices.length - 1}
-                  key={device.instance_key}
-                  query={query}
-                  selectedKey={selectedKey}
-                  t={t}
-                  toggleExpanded={toggleExpanded}
-                  onSelect={onSelect}
-                />
-              ))}
-            </div>
+            {visibleDevices.map((device) => (
+              <DeviceNode
+                depth={1}
+                device={device}
+                expanded={expanded}
+                key={device.instance_key}
+                query={query}
+                selectedKey={selectedKey}
+                t={t}
+                toggleExpanded={toggleExpanded}
+                onSelect={onSelect}
+              />
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
@@ -182,11 +184,12 @@ function BusNode({
   );
 }
 
+/* ── Device (recursive) ── */
+
 function DeviceNode({
   depth,
   device,
   expanded,
-  isLast,
   query,
   selectedKey,
   t,
@@ -196,7 +199,6 @@ function DeviceNode({
   depth: number;
   device: UsbDevice;
   expanded: Set<string>;
-  isLast: boolean;
   query: string;
   selectedKey: string | null;
   t: Translator;
@@ -210,9 +212,9 @@ function DeviceNode({
   const Icon = device.is_hub ? Usb : HardDrive;
 
   return (
-    <div className={cn("tree-node", isLast && "tree-node-last")}>
+    <div>
       <TreeItem
-        depth={0}
+        depth={depth}
         icon={Icon}
         isExpanded={isExpanded}
         isSelected={selectedKey === device.instance_key}
@@ -238,28 +240,27 @@ function DeviceNode({
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="overflow-hidden"
           >
-            <div className="ml-[16px] tree-guide-line">
-              {device.children.map((child, idx) => (
-                <DeviceNode
-                  depth={depth + 1}
-                  device={child}
-                  expanded={expanded}
-                  isLast={idx === device.children.length - 1}
-                  key={child.instance_key}
-                  query={query}
-                  selectedKey={selectedKey}
-                  t={t}
-                  toggleExpanded={toggleExpanded}
-                  onSelect={onSelect}
-                />
-              ))}
-            </div>
+            {device.children.map((child) => (
+              <DeviceNode
+                depth={depth + 1}
+                device={child}
+                expanded={expanded}
+                key={child.instance_key}
+                query={query}
+                selectedKey={selectedKey}
+                t={t}
+                toggleExpanded={toggleExpanded}
+                onSelect={onSelect}
+              />
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
 }
+
+/* ── Tree row ── */
 
 function TreeItem({
   depth,
@@ -294,7 +295,7 @@ function TreeItem({
           ? "bg-primary/10 text-foreground"
           : "text-foreground/80 hover:bg-accent",
       )}
-      style={{ paddingLeft: 4 + depth * 16 }}
+      style={{ paddingLeft: 4 + depth * INDENT_PX }}
       onClick={onClick}
     >
       <button
@@ -323,6 +324,8 @@ function TreeItem({
     </div>
   );
 }
+
+/* ── Placeholders ── */
 
 function EmptyTree({ label }: { label: string }) {
   return (
