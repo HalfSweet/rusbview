@@ -272,7 +272,7 @@ function App() {
                   transition={{ duration: 0.12 }}
                 >
                   <ResizablePanelGroup>
-                    <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
+                    <ResizablePanel defaultSize="30" minSize="18" maxSize="45">
                       <TreeSidebar
                         expanded={expanded}
                         history={history}
@@ -287,7 +287,7 @@ function App() {
                       />
                     </ResizablePanel>
                     <ResizableHandle />
-                    <ResizablePanel defaultSize={70} minSize={40}>
+                    <ResizablePanel defaultSize="70" minSize="40">
                       <DetailPane
                         device={selectedDevice}
                         error={error}
