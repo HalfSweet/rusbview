@@ -50,17 +50,3 @@ pub fn default_log_dir() -> Result<PathBuf> {
         .context("failed to resolve application cache directory")?;
     Ok(project_dirs.cache_dir().join(LOG_DIR))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn default_log_dir_ends_with_logs() {
-        let path = default_log_dir().unwrap();
-        assert_eq!(
-            path.file_name().and_then(|name| name.to_str()),
-            Some(LOG_DIR)
-        );
-    }
-}

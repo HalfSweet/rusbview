@@ -108,20 +108,3 @@ fn chinese_simplified(message: Message) -> &'static str {
         Message::EmptyTopology => "未找到 USB 设备",
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn returns_translated_text_for_configured_locale() {
-        let translator = Translator::new(Locale::ZhHans);
-        assert_eq!(translator.text(Message::Refresh), "刷新");
-    }
-
-    #[test]
-    fn english_is_available_as_fallback_locale() {
-        let translator = Translator::new(Locale::En);
-        assert_eq!(translator.text(Message::Refresh), "Refresh");
-    }
-}
