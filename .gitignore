@@ -1,6 +1,7 @@
 /target
 node_modules
 dist
+.github/generated/
 /.idea
 /.vscode
 .DS_Store

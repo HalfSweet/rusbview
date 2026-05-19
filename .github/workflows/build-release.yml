@@ -33,24 +33,24 @@ jobs:
             runner: macos-latest
             rust_target: aarch64-apple-darwin
             tauri_args: --target aarch64-apple-darwin --bundles dmg --ci
-            artifact_paths: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            artifact_paths: target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           - name: macos-x86_64
             runner: macos-latest
             rust_target: x86_64-apple-darwin
             tauri_args: --target x86_64-apple-darwin --bundles dmg --ci
-            artifact_paths: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
+            artifact_paths: target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
           - name: linux-x86_64
             runner: ubuntu-22.04
             rust_target: ""
             tauri_args: --bundles deb appimage --ci
             artifact_paths: |
-              src-tauri/target/release/bundle/deb/*.deb
-              src-tauri/target/release/bundle/appimage/*.AppImage
+              target/release/bundle/deb/*.deb
+              target/release/bundle/appimage/*.AppImage
           - name: windows-x86_64
             runner: windows-latest
             rust_target: ""
             tauri_args: --bundles nsis --ci
-            artifact_paths: src-tauri/target/release/bundle/nsis/*.exe
+            artifact_paths: target/release/bundle/nsis/*.exe
 
     steps:
       - name: Checkout
