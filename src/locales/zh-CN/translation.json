@@ -49,5 +49,6 @@
   "backendLocale": "后端语言环境",
   "hotplugMonitor": "热拔插监听",
   "active": "运行中",
-  "pageDevices": "USB 浏览"
+  "pageDevices": "USB 浏览",
+  "backToDevices": "返回 USB 浏览"
 }

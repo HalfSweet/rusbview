@@ -49,5 +49,6 @@
   "backendLocale": "Backend locale",
   "hotplugMonitor": "Hotplug monitor",
   "active": "Active",
-  "pageDevices": "USB Explorer"
+  "pageDevices": "USB Explorer",
+  "backToDevices": "Back to USB Explorer"
 }

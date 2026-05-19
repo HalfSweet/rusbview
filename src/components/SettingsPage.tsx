@@ -1,6 +1,13 @@
 import type { ReactNode } from "react";
 import { motion } from "motion/react";
-import { Check, Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Monitor,
+  Moon,
+  Sun,
+  type LucideIcon,
+} from "lucide-react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -26,6 +33,7 @@ export function SettingsPage({
   t,
   theme,
   setTheme,
+  onBack,
   onLanguageChange,
 }: {
   backendLocale: BackendLocale | null;
@@ -36,6 +44,7 @@ export function SettingsPage({
   t: Translator;
   theme: ThemeMode;
   setTheme: (theme: ThemeMode) => void;
+  onBack: () => void;
   onLanguageChange: (lang: LanguageCode) => void;
 }) {
   const activeLanguage: LanguageCode = language.toLowerCase().startsWith("zh")
@@ -51,6 +60,29 @@ export function SettingsPage({
           transition={{ duration: 0.15 }}
           className="mx-auto w-full max-w-xl space-y-6 p-6"
         >
+          <div className="flex items-start gap-3">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label={t("backToDevices")}
+                  className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  onClick={onBack}
+                >
+                  <ArrowLeft className="size-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{t("backToDevices")}</TooltipContent>
+            </Tooltip>
+            <div className="min-w-0">
+              <h2 className="truncate text-sm font-semibold leading-snug">
+                {t("settings")}
+              </h2>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {t("settingsSubtitle")}
+              </p>
+            </div>
+          </div>
+
           {/* Language */}
           <SettingsGroup title={t("language")} description={t("languageDescription")}>
             <div className="space-y-0.5">

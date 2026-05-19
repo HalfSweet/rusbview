@@ -206,6 +206,7 @@ function App() {
                     t={t}
                     theme={theme}
                     setTheme={setTheme}
+                    onBack={() => setPage("devices")}
                     onLanguageChange={(lang) => void i18n.changeLanguage(lang)}
                   />
                 </motion.div>
