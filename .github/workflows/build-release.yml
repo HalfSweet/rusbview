@@ -55,6 +55,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -111,18 +113,23 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Derive app version
+        id: version
+        shell: bash
+        run: bash scripts/derive-version.sh
+
       - name: Build Tauri app
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: tauri-apps/tauri-action@v0
         with:
           tauriScript: pnpm tauri
-          args: ${{ matrix.tauri_args }}
+          args: ${{ matrix.tauri_args }} --config ${{ steps.version.outputs.config_path }}
 
       - name: Upload build artifacts
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
         with:
-          name: rusbview-${{ matrix.name }}
+          name: rusbview-${{ steps.version.outputs.version }}-${{ matrix.name }}
           path: ${{ matrix.artifact_paths }}
           if-no-files-found: error
 
@@ -133,10 +140,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tauriScript: pnpm tauri
-          args: ${{ matrix.tauri_args }}
+          args: ${{ matrix.tauri_args }} --config ${{ steps.version.outputs.config_path }}
           tagName: ${{ github.ref_name }}
-          releaseName: rusbview ${{ github.ref_name }}
-          releaseBody: Automated release for ${{ github.ref_name }}.
+          releaseName: rusbview ${{ steps.version.outputs.version }}
+          releaseBody: Automated release for ${{ steps.version.outputs.version }}.
           generateReleaseNotes: true
           releaseDraft: false
           prerelease: false
