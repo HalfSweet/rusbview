@@ -1,14 +1,19 @@
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
 import {
   ArrowLeft,
   Check,
+  Download,
+  LoaderCircle,
   Monitor,
   Moon,
+  RefreshCw,
+  RotateCcw,
   Sun,
   type LucideIcon,
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
@@ -23,6 +28,31 @@ import type {
   ThemeMode,
   Translator,
 } from "@/lib/types";
+
+type UpdaterModule = typeof import("@tauri-apps/plugin-updater");
+type AvailableUpdate = NonNullable<
+  Awaited<ReturnType<UpdaterModule["check"]>>
+>;
+
+type UpdatePhase =
+  | "idle"
+  | "checking"
+  | "latest"
+  | "available"
+  | "downloading"
+  | "ready"
+  | "restarting"
+  | "error";
+
+type UpdateState = {
+  phase: UpdatePhase;
+  contentLength?: number | null;
+  date?: string | null;
+  downloaded?: number;
+  error?: string;
+  notes?: string | null;
+  version?: string;
+};
 
 export function SettingsPage({
   backendLocale,
@@ -50,6 +80,110 @@ export function SettingsPage({
   const activeLanguage: LanguageCode = language.toLowerCase().startsWith("zh")
     ? "zh-CN"
     : "en";
+  const pendingUpdate = useRef<AvailableUpdate | null>(null);
+  const [updateState, setUpdateState] = useState<UpdateState>({
+    phase: "idle",
+  });
+
+  async function checkForUpdate() {
+    pendingUpdate.current = null;
+    setUpdateState({ phase: "checking" });
+
+    try {
+      const { check } = await import("@tauri-apps/plugin-updater");
+      const update = await check();
+
+      if (!update) {
+        setUpdateState({ phase: "latest" });
+        return;
+      }
+
+      pendingUpdate.current = update;
+      setUpdateState({
+        phase: "available",
+        date: update.date ?? null,
+        notes: update.body ?? null,
+        version: update.version,
+      });
+    } catch (error) {
+      setUpdateState({
+        phase: "error",
+        error: getErrorMessage(error),
+      });
+    }
+  }
+
+  async function downloadAndInstallUpdate() {
+    const update = pendingUpdate.current;
+    if (!update) return;
+
+    let downloaded = 0;
+    setUpdateState((current) => ({
+      ...current,
+      phase: "downloading",
+      contentLength: null,
+      downloaded: 0,
+      error: undefined,
+    }));
+
+    try {
+      await update.downloadAndInstall((event) => {
+        switch (event.event) {
+          case "Started":
+            setUpdateState((current) => ({
+              ...current,
+              contentLength: event.data.contentLength ?? null,
+              downloaded: 0,
+            }));
+            break;
+          case "Progress":
+            downloaded += event.data.chunkLength;
+            setUpdateState((current) => ({
+              ...current,
+              downloaded,
+            }));
+            break;
+          case "Finished":
+            setUpdateState((current) => ({
+              ...current,
+              downloaded: current.contentLength ?? current.downloaded,
+            }));
+            break;
+        }
+      });
+
+      setUpdateState((current) => ({
+        ...current,
+        phase: "ready",
+        error: undefined,
+      }));
+    } catch (error) {
+      setUpdateState((current) => ({
+        ...current,
+        phase: "error",
+        error: getErrorMessage(error),
+      }));
+    }
+  }
+
+  async function restartApp() {
+    setUpdateState((current) => ({
+      ...current,
+      phase: "restarting",
+      error: undefined,
+    }));
+
+    try {
+      const { relaunch } = await import("@tauri-apps/plugin-process");
+      await relaunch();
+    } catch (error) {
+      setUpdateState((current) => ({
+        ...current,
+        phase: "error",
+        error: getErrorMessage(error),
+      }));
+    }
+  }
 
   return (
     <section className="flex h-full flex-col bg-background">
@@ -124,6 +258,50 @@ export function SettingsPage({
             </SettingsRow>
           </SettingsGroup>
 
+          {/* Updates */}
+          <SettingsGroup title={t("updates")} description={t("updatesDescription")}>
+            <SettingsRow label={t("updateStatus")}>
+              <UpdateStatus state={updateState} t={t} />
+            </SettingsRow>
+            {updateState.phase === "available" && updateState.date && (
+              <SettingsRow label={t("releaseDate")}>
+                <span className="text-xs text-muted-foreground">
+                  {formatUpdateDate(updateState.date, language)}
+                </span>
+              </SettingsRow>
+            )}
+            {updateState.phase === "available" && updateState.notes && (
+              <SettingsRow label={t("releaseNotes")}>
+                <p className="max-w-80 whitespace-pre-wrap text-right text-[11px] leading-relaxed text-muted-foreground">
+                  {updateState.notes}
+                </p>
+              </SettingsRow>
+            )}
+            {updateState.phase === "downloading" && (
+              <SettingsRow label={t("updateProgress")}>
+                <span className="text-xs text-muted-foreground">
+                  {formatDownloadProgress(updateState, language, t)}
+                </span>
+              </SettingsRow>
+            )}
+            {updateState.phase === "error" && updateState.error && (
+              <SettingsRow label={t("updateError")}>
+                <span className="max-w-80 break-words text-right text-[11px] text-destructive">
+                  {updateState.error}
+                </span>
+              </SettingsRow>
+            )}
+            <SettingsRow label={t("updateAction")}>
+              <UpdateActionButton
+                state={updateState}
+                t={t}
+                onCheck={checkForUpdate}
+                onInstall={downloadAndInstallUpdate}
+                onRestart={restartApp}
+              />
+            </SettingsRow>
+          </SettingsGroup>
+
           {/* Runtime */}
           <SettingsGroup title={t("runtime")} description={t("runtimeDescription")}>
             <SettingsRow label={t("hotplugMonitor")}>
@@ -187,11 +365,166 @@ function SettingsRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between px-3 py-2">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <div>{children}</div>
+    <div className="flex items-center justify-between gap-3 px-3 py-2">
+      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+      <div className="min-w-0 text-right">{children}</div>
     </div>
   );
+}
+
+function UpdateStatus({
+  state,
+  t,
+}: {
+  state: UpdateState;
+  t: Translator;
+}) {
+  const message = getUpdateStatusMessage(state, t);
+
+  return (
+    <span
+      aria-live="polite"
+      className={cn(
+        "text-xs",
+        state.phase === "error" ? "text-destructive" : "text-muted-foreground",
+      )}
+    >
+      {message}
+    </span>
+  );
+}
+
+function UpdateActionButton({
+  state,
+  t,
+  onCheck,
+  onInstall,
+  onRestart,
+}: {
+  state: UpdateState;
+  t: Translator;
+  onCheck: () => void;
+  onInstall: () => void;
+  onRestart: () => void;
+}) {
+  if (state.phase === "available") {
+    return (
+      <Button size="xs" onClick={onInstall}>
+        <Download className="size-3" />
+        {t("downloadAndInstall")}
+      </Button>
+    );
+  }
+
+  if (state.phase === "ready") {
+    return (
+      <Button size="xs" onClick={onRestart}>
+        <RotateCcw className="size-3" />
+        {t("restartToUpdate")}
+      </Button>
+    );
+  }
+
+  const busy =
+    state.phase === "checking" ||
+    state.phase === "downloading" ||
+    state.phase === "restarting";
+
+  return (
+    <Button size="xs" variant="outline" disabled={busy} onClick={onCheck}>
+      {busy ? (
+        <LoaderCircle className="size-3 animate-spin" />
+      ) : (
+        <RefreshCw className="size-3" />
+      )}
+      {getUpdateActionLabel(state.phase, t)}
+    </Button>
+  );
+}
+
+function getUpdateStatusMessage(state: UpdateState, t: Translator) {
+  switch (state.phase) {
+    case "checking":
+      return t("checkingForUpdates");
+    case "latest":
+      return t("latestVersionInstalled");
+    case "available":
+      return t("updateAvailableVersion", {
+        version: state.version ?? t("unknownVersion"),
+      });
+    case "downloading":
+      return t("downloadingUpdate");
+    case "ready":
+      return t("updateReady");
+    case "restarting":
+      return t("restartingApp");
+    case "error":
+      return t("updateFailed");
+    case "idle":
+    default:
+      return t("updatesIdle");
+  }
+}
+
+function getUpdateActionLabel(phase: UpdatePhase, t: Translator) {
+  switch (phase) {
+    case "checking":
+      return t("checkingForUpdates");
+    case "downloading":
+      return t("downloadingUpdate");
+    case "restarting":
+      return t("restartingApp");
+    default:
+      return t("checkForUpdates");
+  }
+}
+
+function formatDownloadProgress(
+  state: UpdateState,
+  language: string,
+  t: Translator,
+) {
+  const downloaded = formatBytes(state.downloaded ?? 0, language);
+  if (!state.contentLength) {
+    return t("downloadedProgress", { downloaded });
+  }
+
+  return t("downloadProgressWithTotal", {
+    downloaded,
+    total: formatBytes(state.contentLength, language),
+  });
+}
+
+function formatBytes(bytes: number, language: string) {
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  const maximumFractionDigits = unitIndex === 0 ? 0 : 1;
+  const formatter = new Intl.NumberFormat(language, {
+    maximumFractionDigits,
+  });
+
+  return `${formatter.format(value)} ${units[unitIndex]}`;
+}
+
+function formatUpdateDate(value: string, language: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat(language, {
+    dateStyle: "medium",
+  }).format(date);
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return String(error);
 }
 
 function ThemeToggle({

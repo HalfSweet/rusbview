@@ -16,11 +16,13 @@ Start the Tauri desktop app:
 pnpm tauri dev
 ```
 
-Build distribution bundles:
+Build local distribution bundles without updater artifacts:
 
 ```sh
-pnpm tauri build
+pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
 ```
+
+The app checks `https://github.com/HalfSweet/rusbview/releases/latest/download/latest.json` for updates. Tag releases publish the updater manifest through the release workflow.
 
 For development and CI checks:
 

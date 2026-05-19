@@ -416,6 +416,8 @@ pub fn run() {
         .menu(build_app_menu)
         .on_menu_event(handle_menu_event)
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(LoggingState {
             _guard: logging_guard,
         })
