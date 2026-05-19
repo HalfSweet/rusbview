@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   HardDrive,
+  RefreshCw,
   type LucideIcon,
   Search,
   Usb,
@@ -14,6 +15,11 @@ import {
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { countDevices, filterDevice, formatVidPid, matchesText } from "@/lib/usb";
 import type {
@@ -30,21 +36,25 @@ export function TreeSidebar({
   expanded,
   loading,
   query,
+  refreshing,
   selectedKey,
   snapshot,
   t,
   toggleExpanded,
   onQueryChange,
+  onRefresh,
   onSelect,
 }: {
   expanded: Set<string>;
   loading: boolean;
   query: string;
+  refreshing: boolean;
   selectedKey: string | null;
   snapshot: UsbSnapshot | null;
   t: Translator;
   toggleExpanded: (key: string) => void;
   onQueryChange: (q: string) => void;
+  onRefresh: () => void;
   onSelect: (key: string) => void;
 }) {
   const normalizedQuery = query.trim().toLowerCase();
@@ -73,9 +83,24 @@ export function TreeSidebar({
       {/* tree header */}
       <div className="flex h-6 shrink-0 items-center justify-between px-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         <span>{t("devices")}</span>
-        {snapshot && (
-          <span className="tabular-nums">{snapshot.device_count}</span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {snapshot && (
+            <span className="tabular-nums">{snapshot.device_count}</span>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                aria-label={t("refresh")}
+                className="inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground disabled:opacity-40"
+                disabled={refreshing}
+                onClick={onRefresh}
+              >
+                <RefreshCw className={cn("size-3", refreshing && "animate-spin")} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">{t("refresh")}</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
       {/* tree body */}

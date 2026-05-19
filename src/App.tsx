@@ -4,7 +4,6 @@ import { listen } from "@tauri-apps/api/event";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 
-import { Toolbar } from "@/components/Toolbar";
 import { TreeSidebar } from "@/components/TreeSidebar";
 import { DetailPane } from "@/components/DetailPane";
 import { SettingsPage } from "@/components/SettingsPage";
@@ -24,6 +23,8 @@ import type {
 } from "@/lib/types";
 
 const EVENT_NAME = "usb-state-changed";
+const MENU_SHOW_DEVICES = "menu-show-devices";
+const MENU_SHOW_SETTINGS = "menu-show-settings";
 
 function App() {
   const [payload, setPayload] = useState<UsbStatePayload | null>(null);
@@ -103,6 +104,37 @@ function App() {
     return () => { disposed = true; unlisten?.(); };
   }, []);
 
+  /* ── Native menu and settings shortcut ── */
+  useEffect(() => {
+    let disposed = false;
+    const disposers: Array<() => void> = [];
+
+    listen<void>(MENU_SHOW_DEVICES, () => setPage("devices")).then((dispose) => {
+      if (disposed) dispose();
+      else disposers.push(dispose);
+    });
+
+    listen<void>(MENU_SHOW_SETTINGS, () => setPage("settings")).then((dispose) => {
+      if (disposed) dispose();
+      else disposers.push(dispose);
+    });
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "," && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setPage("settings");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      disposed = true;
+      disposers.forEach((dispose) => dispose());
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   /* ── Auto-select first device ── */
   useEffect(() => {
     if (!snapshot) return;
@@ -154,16 +186,6 @@ function App() {
     <MotionConfig reducedMotion="user">
       <TooltipProvider delayDuration={300}>
         <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
-          <Toolbar
-            page={page}
-            setPage={setPage}
-            theme={theme}
-            setTheme={setTheme}
-            refreshing={refreshing}
-            onRefresh={refreshNow}
-            t={t}
-          />
-
           <main className="min-h-0 flex-1">
             <AnimatePresence mode="wait" initial={false}>
               {page === "settings" ? (
@@ -202,11 +224,13 @@ function App() {
                         expanded={expanded}
                         loading={loading}
                         query={query}
+                        refreshing={refreshing}
                         selectedKey={selectedKey}
                         snapshot={snapshot}
                         t={t}
                         toggleExpanded={toggleExpanded}
                         onQueryChange={setQuery}
+                        onRefresh={refreshNow}
                         onSelect={setSelectedKey}
                       />
                     </ResizablePanel>

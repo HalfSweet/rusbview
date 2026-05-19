@@ -1,9 +1,13 @@
 import type { ReactNode } from "react";
 import { motion } from "motion/react";
-import { Check } from "lucide-react";
+import { Check, Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
 
-import { ThemeToggle } from "@/components/Toolbar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { supportedLanguages } from "@/lib/i18n";
 import type {
@@ -154,6 +158,49 @@ function SettingsRow({
     <div className="flex items-center justify-between px-3 py-2">
       <span className="text-xs text-muted-foreground">{label}</span>
       <div>{children}</div>
+    </div>
+  );
+}
+
+function ThemeToggle({
+  theme,
+  setTheme,
+  t,
+}: {
+  theme: ThemeMode;
+  setTheme: (theme: ThemeMode) => void;
+  t: Translator;
+}) {
+  const modes: Array<{ mode: ThemeMode; icon: LucideIcon; label: string }> = [
+    { mode: "system", icon: Monitor, label: t("system") },
+    { mode: "light", icon: Sun, label: t("light") },
+    { mode: "dark", icon: Moon, label: t("dark") },
+  ];
+
+  return (
+    <div className="flex h-6 items-center rounded-sm bg-muted p-0.5">
+      {modes.map((item) => {
+        const Icon = item.icon;
+        const active = theme === item.mode;
+        return (
+          <Tooltip key={item.mode}>
+            <TooltipTrigger asChild>
+              <button
+                className={cn(
+                  "flex size-5 items-center justify-center rounded-[3px] transition-colors",
+                  active
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                onClick={() => setTheme(item.mode)}
+              >
+                <Icon className="size-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{item.label}</TooltipContent>
+          </Tooltip>
+        );
+      })}
     </div>
   );
 }

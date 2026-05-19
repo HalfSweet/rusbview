@@ -1,7 +1,13 @@
 use std::sync::Mutex;
 
 use serde::Serialize;
-use tauri::{Emitter, Manager, State};
+use tauri::{
+    menu::{
+        AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu, HELP_SUBMENU_ID,
+        WINDOW_SUBMENU_ID,
+    },
+    Emitter, Manager, Runtime, State,
+};
 use tracing::{error, info, warn};
 
 pub mod history;
@@ -11,9 +17,14 @@ pub mod monitor;
 pub mod usb;
 
 use history::{default_history_path, DeviceHistoryStore};
-use i18n::Locale;
+use i18n::{Locale, Message, Translator};
 use monitor::{spawn_hotplug_monitor, MonitorEvent, UsbMonitorHandle};
 use usb::{capture_snapshot, diff_snapshots, SnapshotDiff, UsbSnapshot};
+
+const MENU_ID_SHOW_DEVICES: &str = "show-devices";
+const MENU_ID_SHOW_SETTINGS: &str = "show-settings";
+const MENU_EVENT_SHOW_DEVICES: &str = "menu-show-devices";
+const MENU_EVENT_SHOW_SETTINGS: &str = "menu-show-settings";
 
 #[derive(Debug)]
 struct LoggingState {
@@ -110,7 +121,8 @@ impl UsbAppState {
     fn apply_monitor_event(&self, event: MonitorEvent) -> Result<UsbMonitorPayload, String> {
         match event {
             MonitorEvent::Baseline(snapshot) => {
-                let state = self.apply_snapshot(snapshot, "USB hotplug monitor ready".to_string())?;
+                let state =
+                    self.apply_snapshot(snapshot, "USB hotplug monitor ready".to_string())?;
                 Ok(UsbMonitorPayload {
                     reason: "baseline".to_string(),
                     connected: 0,
@@ -208,6 +220,150 @@ fn refresh_usb_state(state: State<'_, UsbAppState>) -> Result<UsbStatePayload, S
     state.refresh()
 }
 
+fn build_app_menu<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<Menu<R>> {
+    let translator = Translator::detected();
+    let package_info = app.package_info();
+    let config = app.config();
+    let about_metadata = AboutMetadata {
+        name: Some(package_info.name.clone()),
+        version: Some(package_info.version.to_string()),
+        copyright: config.bundle.copyright.clone(),
+        authors: config
+            .bundle
+            .publisher
+            .clone()
+            .map(|publisher| vec![publisher]),
+        ..Default::default()
+    };
+
+    let settings = MenuItem::with_id(
+        app,
+        MENU_ID_SHOW_SETTINGS,
+        translator.text(Message::Settings),
+        true,
+        Some("CmdOrCtrl+,"),
+    )?;
+    let devices = MenuItem::with_id(
+        app,
+        MENU_ID_SHOW_DEVICES,
+        translator.text(Message::UsbExplorer),
+        true,
+        Some("CmdOrCtrl+1"),
+    )?;
+
+    let window_menu = Submenu::with_id_and_items(
+        app,
+        WINDOW_SUBMENU_ID,
+        translator.text(Message::Window),
+        true,
+        &[
+            &PredefinedMenuItem::minimize(app, None)?,
+            &PredefinedMenuItem::maximize(app, None)?,
+            #[cfg(target_os = "macos")]
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::close_window(app, None)?,
+        ],
+    )?;
+
+    let help_menu = Submenu::with_id_and_items(
+        app,
+        HELP_SUBMENU_ID,
+        translator.text(Message::Help),
+        true,
+        &[
+            #[cfg(not(target_os = "macos"))]
+            &PredefinedMenuItem::about(app, None, Some(about_metadata.clone()))?,
+        ],
+    )?;
+
+    Menu::with_items(
+        app,
+        &[
+            #[cfg(target_os = "macos")]
+            &Submenu::with_items(
+                app,
+                translator.text(Message::AppTitle),
+                true,
+                &[
+                    &PredefinedMenuItem::about(app, None, Some(about_metadata.clone()))?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &settings,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::services(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::hide(app, None)?,
+                    &PredefinedMenuItem::hide_others(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::quit(app, None)?,
+                ],
+            )?,
+            #[cfg(target_os = "macos")]
+            &Submenu::with_items(
+                app,
+                translator.text(Message::File),
+                true,
+                &[&PredefinedMenuItem::close_window(app, None)?],
+            )?,
+            #[cfg(not(target_os = "macos"))]
+            &Submenu::with_items(
+                app,
+                translator.text(Message::File),
+                true,
+                &[
+                    &settings,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::close_window(app, None)?,
+                    &PredefinedMenuItem::quit(app, None)?,
+                ],
+            )?,
+            &Submenu::with_items(
+                app,
+                translator.text(Message::Edit),
+                true,
+                &[
+                    &PredefinedMenuItem::undo(app, None)?,
+                    &PredefinedMenuItem::redo(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::cut(app, None)?,
+                    &PredefinedMenuItem::copy(app, None)?,
+                    &PredefinedMenuItem::paste(app, None)?,
+                    &PredefinedMenuItem::select_all(app, None)?,
+                ],
+            )?,
+            &Submenu::with_items(
+                app,
+                translator.text(Message::View),
+                true,
+                &[
+                    &devices,
+                    #[cfg(target_os = "macos")]
+                    &PredefinedMenuItem::separator(app)?,
+                    #[cfg(target_os = "macos")]
+                    &PredefinedMenuItem::fullscreen(app, None)?,
+                ],
+            )?,
+            &window_menu,
+            &help_menu,
+        ],
+    )
+}
+
+fn handle_menu_event<R: Runtime>(app: &tauri::AppHandle<R>, event: tauri::menu::MenuEvent) {
+    match event.id() {
+        id if id == MENU_ID_SHOW_DEVICES => {
+            if let Err(error) = app.emit(MENU_EVENT_SHOW_DEVICES, ()) {
+                warn!(?error, "failed to emit USB explorer menu event");
+            }
+        }
+        id if id == MENU_ID_SHOW_SETTINGS => {
+            if let Err(error) = app.emit(MENU_EVENT_SHOW_SETTINGS, ()) {
+                warn!(?error, "failed to emit settings menu event");
+            }
+        }
+        _ => {}
+    }
+}
+
 fn start_monitor(app: tauri::AppHandle) -> MonitorState {
     let (handle, rx) = spawn_hotplug_monitor();
     std::thread::Builder::new()
@@ -257,6 +413,8 @@ pub fn run() {
         .unwrap_or_else(|| "unavailable".to_string());
 
     tauri::Builder::default()
+        .menu(build_app_menu)
+        .on_menu_event(handle_menu_event)
         .plugin(tauri_plugin_opener::init())
         .manage(LoggingState {
             _guard: logging_guard,
