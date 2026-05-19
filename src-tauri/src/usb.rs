@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Local};
-use cyme::profiler::{self, Bus, Device, SystemProfile};
+use cyme::profiler::{self, Bus, Device, ProfileDepth, ProfilerOptions, SystemProfile};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,9 +90,17 @@ pub struct SnapshotDiff {
 }
 
 pub fn capture_snapshot() -> Result<UsbSnapshot> {
-    let profile =
-        profiler::get_spusb_with_extra().context("failed to profile USB devices with cyme")?;
+    let profile = profiler::get_spusb_with_options(&profiler_options())
+        .context("failed to profile USB devices with cyme")?;
     Ok(snapshot_from_profile(&profile))
+}
+
+fn profiler_options() -> ProfilerOptions {
+    ProfilerOptions {
+        depth: ProfileDepth::Standard,
+        tree: true,
+        ..Default::default()
+    }
 }
 
 pub fn snapshot_from_profile(profile: &SystemProfile) -> UsbSnapshot {
@@ -494,5 +502,13 @@ mod tests {
         assert_eq!(diff.disconnected.len(), 1);
         assert_eq!(diff.connected[0].serial.as_deref(), Some("new"));
         assert_eq!(diff.disconnected[0].serial.as_deref(), Some("old"));
+    }
+
+    #[test]
+    fn manual_capture_keeps_profile_tree() {
+        let options = profiler_options();
+
+        assert!(options.tree);
+        assert_eq!(options.depth, ProfileDepth::Standard);
     }
 }
