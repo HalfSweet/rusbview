@@ -1,6 +1,6 @@
 # rusbview
 
-`rusbview` is a Tauri desktop application for inspecting USB topology, device details, hotplug history, and USB descriptors. USB enumeration and hotplug watching are provided by `cyme`; the frontend is React, shadcn/ui, Tailwind CSS, and Motion.
+`rusbview` is a Tauri desktop application for inspecting USB topology, device details, hotplug history, and USB descriptors. The frontend is React, shadcn/ui, Tailwind CSS, and Motion.
 
 ## Run
 
@@ -64,3 +64,11 @@ The GUI displays both paths in the Logs tab. Logs use `RUST_LOG` when set, other
 - Persistent insertion/removal counters keyed by stable device identity.
 - Light, dark, and system theme modes.
 - Initial i18n structure for English and Simplified Chinese. Use `RUSBVIEW_LANG=zh` to force the backend locale during development.
+
+## Acknowledgements
+
+Core USB enumeration and hotplug watching are powered by [`cyme`](https://github.com/tuna-f1sh/cyme).
+
+## License
+
+`rusbview` is licensed under the GNU General Public License v3.0 only. See [LICENSE](LICENSE).

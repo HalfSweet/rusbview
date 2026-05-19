@@ -3,6 +3,7 @@ name = "rusbview"
 version = "0.1.0"
 description = "A Tauri desktop viewer for USB topology, descriptors, and hotplug history."
 authors = ["halfsweet"]
+license = "GPL-3.0-only"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
