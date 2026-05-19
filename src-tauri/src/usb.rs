@@ -171,8 +171,16 @@ fn bus_from_cyme(bus: &Bus) -> UsbBus {
         devices: bus
             .devices
             .as_ref()
-            .map(|devices| devices.iter().map(device_from_cyme).collect())
+            .map(|devices| devices.iter().filter_map(active_device_from_cyme).collect())
             .unwrap_or_default(),
+    }
+}
+
+fn active_device_from_cyme(device: &Device) -> Option<UsbDevice> {
+    if device.is_disconnected() {
+        None
+    } else {
+        Some(device_from_cyme(device))
     }
 }
 
@@ -216,7 +224,12 @@ fn device_from_cyme(device: &Device) -> UsbDevice {
         children: device
             .devices
             .as_ref()
-            .map(|children| children.iter().map(device_from_cyme).collect())
+            .map(|children| {
+                children
+                    .iter()
+                    .filter_map(active_device_from_cyme)
+                    .collect()
+            })
             .unwrap_or_default(),
         identity,
     }
@@ -432,6 +445,7 @@ fn present(value: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cyme::profiler::{DeviceEvent, DeviceLocation};
 
     fn snapshot_with_devices(devices: Vec<UsbDevice>) -> UsbSnapshot {
         UsbSnapshot {
@@ -480,6 +494,27 @@ mod tests {
         }
     }
 
+    fn cyme_device(name: &str, address: u8, positions: Vec<u8>) -> Device {
+        Device {
+            name: name.to_string(),
+            vendor_id: Some(0x1234),
+            product_id: Some(0xabcd),
+            location_id: DeviceLocation {
+                bus: 1,
+                number: address,
+                tree_positions: positions,
+            },
+            ..Default::default()
+        }
+    }
+
+    fn profile_with_devices(devices: Vec<Device>) -> SystemProfile {
+        let mut bus = Bus::from(1);
+        bus.devices = Some(devices);
+
+        SystemProfile { buses: vec![bus] }
+    }
+
     #[test]
     fn serial_identity_is_location_independent() {
         let first = test_device(Some("abc"), 2);
@@ -510,5 +545,30 @@ mod tests {
 
         assert!(options.tree);
         assert_eq!(options.depth, ProfileDepth::Standard);
+    }
+
+    #[test]
+    fn snapshot_omits_devices_marked_disconnected_by_hotplug_stream() {
+        let connected = cyme_device("Connected", 2, vec![2]);
+        let mut disconnected = cyme_device("Disconnected", 3, vec![3]);
+        disconnected.last_event = Some(DeviceEvent::Disconnected(Local::now()));
+
+        let snapshot = snapshot_from_profile(&profile_with_devices(vec![connected, disconnected]));
+
+        assert_eq!(snapshot.device_count, 1);
+        assert_eq!(snapshot.buses[0].devices[0].display_name, "Connected");
+    }
+
+    #[test]
+    fn snapshot_omits_disconnected_children_from_hotplug_stream() {
+        let mut hub = cyme_device("Hub", 2, vec![2]);
+        let mut child = cyme_device("Disconnected Child", 4, vec![2, 1]);
+        child.last_event = Some(DeviceEvent::Disconnected(Local::now()));
+        hub.devices = Some(vec![child]);
+
+        let snapshot = snapshot_from_profile(&profile_with_devices(vec![hub]));
+
+        assert_eq!(snapshot.device_count, 1);
+        assert_eq!(snapshot.buses[0].devices[0].children.len(), 0);
     }
 }
