@@ -115,8 +115,7 @@ jobs:
 
       - name: Derive app version
         id: version
-        shell: bash
-        run: bash scripts/derive-version.sh
+        run: node scripts/derive-version.mjs
 
       - name: Build Tauri app
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
