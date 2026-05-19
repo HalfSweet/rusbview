@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">rusbview Tree View App Icon</title>
+  <desc id="desc">A restrained flat application icon showing a USB device enumeration tree as a clean inspector-style tree view.</desc>
+
+  <defs>
+    <style>
+      .ink { fill: #242A31; }
+      .muted { fill: #748190; }
+      .paper { fill: #F7F6F2; }
+      .panel { stroke: #E2E1DC; stroke-width: 18; }
+      .tree { stroke: #242A31; stroke-width: 38; stroke-linecap: round; stroke-linejoin: round; }
+      .line-on-dark { fill: #F7F6F2; opacity: .92; }
+    </style>
+  </defs>
+
+  <!-- app tile -->
+  <rect width="1024" height="1024" rx="220" class="paper"/>
+
+  <!-- quiet inspector panel -->
+  <rect x="226" y="202" width="588" height="622" rx="96" fill="#FFFFFF" opacity="0.36"/>
+  <rect x="226" y="202" width="588" height="622" rx="96" class="panel"/>
+
+  <!-- topology tree -->
+  <path class="tree" d="M348 316V696M348 316H464M348 512H464M348 696H464"/>
+  <circle cx="348" cy="316" r="36" class="ink"/>
+  <circle cx="348" cy="512" r="36" class="ink"/>
+  <circle cx="348" cy="696" r="36" class="ink"/>
+
+  <!-- device rows -->
+  <rect x="502" y="270" width="250" height="92" rx="30" class="ink"/>
+  <rect x="502" y="466" width="300" height="92" rx="30" class="ink"/>
+  <rect x="502" y="650" width="210" height="92" rx="30" class="muted"/>
+
+  <!-- minimal row detail, kept large enough for app-icon scale -->
+  <rect x="552" y="309" width="118" height="14" rx="7" class="line-on-dark"/>
+  <rect x="552" y="505" width="154" height="14" rx="7" class="line-on-dark"/>
+  <rect x="552" y="689" width="88" height="14" rx="7" class="line-on-dark"/>
+</svg>
