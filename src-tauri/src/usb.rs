@@ -202,10 +202,11 @@ fn device_from_cyme(device: &Device) -> UsbDevice {
 
     UsbDevice {
         instance_key: identity.instance_key(),
-        display_name: product_name
-            .is_empty()
-            .then(|| device.name.trim().to_owned())
-            .unwrap_or_else(|| product_name.clone()),
+        display_name: if product_name.is_empty() {
+            device.name.trim().to_owned()
+        } else {
+            product_name.clone()
+        },
         manufacturer: device.manufacturer.clone(),
         vendor_name,
         product_name,
